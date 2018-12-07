@@ -5,14 +5,22 @@
  */
 package dataasistentetap;
 
+import helper.Tanggal;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.File;
 import javax.swing.JOptionPane;
 import javax.swing.table.DefaultTableModel;
 import java.sql.*;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashMap;
 import javax.swing.ButtonModel;
+import net.sf.jasperreports.engine.JasperFillManager;
+import net.sf.jasperreports.engine.JasperPrint;
+import net.sf.jasperreports.engine.JasperReport;
+import net.sf.jasperreports.engine.util.JRLoader;
+import net.sf.jasperreports.view.JasperViewer;
 
 /**
  *
@@ -24,7 +32,7 @@ public class MainPage extends javax.swing.JFrame {
      * Creates new form MainPage
      */
     int form_mode = 0; // mode form secara default, yaitu 0 untuk insert, 1 untuk update
-    SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy");
+    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
     Date now = new Date();
     static String selectedData;
     DefaultTableModel dtm;
@@ -33,6 +41,7 @@ public class MainPage extends javax.swing.JFrame {
     String date_now = sdf.format(now);
     Mod_Asisten mod = new Mod_Asisten();
     int id;
+    Tanggal tgl = new Tanggal();
 
     public MainPage() {
         initComponents();
@@ -74,46 +83,13 @@ public class MainPage extends javax.swing.JFrame {
         int tanggal = Integer.parseInt(data[2]);
         int bulan = Integer.parseInt(data[1]);
         int tahun = Integer.parseInt(data[0]);
-        return tanggal + " " + getNamaBulan(bulan) + " " + tahun;
-    }
-
-    public String getNamaBulan(int no_bulan) {
-        switch (no_bulan) {
-            case 1:
-                return "Januari";
-            case 2:
-                return "Februari";
-            case 3:
-                return "Maret";
-            case 4:
-                return "April";
-            case 5:
-                return "Mei";
-            case 6:
-                return "Juni";
-            case 7:
-                return "Juli";
-            case 8:
-                return "Agustus";
-            case 9:
-                return "September";
-            case 10:
-                return "Oktober";
-            case 11:
-                return "November";
-            case 12:
-                return "Desember";
-        }
-        return null;
+        return tanggal + " " + tgl.getNamaBulan(bulan) + " " + tahun;
     }
 
     public void setFormTanggal() {
         setComboBoxTahun();
         setComboBoxTanggal();
-        String[] dates = date_now.split("-");
-        cbBulan.setSelectedIndex(Integer.parseInt(dates[1]) - 1);
-        cbTahun.setSelectedItem(dates[2]);
-        cbTanggal.setSelectedItem(dates[0]);
+        setFormTanggal(date_now);
     }
 
     public void setFormTanggal(String date) {
@@ -141,7 +117,7 @@ public class MainPage extends javax.swing.JFrame {
                 cbTanggal.removeAllItems();
                 int bulan = cbBulan.getSelectedIndex() + 1;
                 int tahun = Integer.parseInt(cbTahun.getSelectedItem().toString());
-                for (int i = 1; i <= jumlahHari(bulan, tahun); i++) {
+                for (int i = 1; i <= tgl.jumlahHari(bulan, tahun); i++) {
                     cbTanggal.addItem(Integer.toString(i));
                 }
                 if (cur_tanggal <= cbTanggal.getItemCount()){
@@ -149,31 +125,6 @@ public class MainPage extends javax.swing.JFrame {
                 }
             }
         });
-    }
-
-    public int jumlahHari(int bulan, int tahun) {
-        switch (bulan) {
-            case 1:
-            case 3:
-            case 5:
-            case 7:
-            case 8:
-            case 10:
-            case 12:
-                return 31;
-            case 4:
-            case 6:
-            case 9:
-            case 11:
-                return 30;
-            case 2:
-                if ((tahun % 4 == 0 && tahun % 100 != 0) || (tahun % 400 == 0)) {
-                    return 29;
-                } else {
-                    return 28;
-                }
-        }
-        return 0;
     }
 
     /* Function untuk memastikan bahwa semua form telah diisi secara lengkap
@@ -231,6 +182,7 @@ public class MainPage extends javax.swing.JFrame {
         btnReset = new javax.swing.JButton();
         cbTanggal = new javax.swing.JComboBox<>();
         cbTahun = new javax.swing.JComboBox<>();
+        btnPrint = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
@@ -318,6 +270,13 @@ public class MainPage extends javax.swing.JFrame {
             }
         });
 
+        btnPrint.setText("Print");
+        btnPrint.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnPrintActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
@@ -354,7 +313,7 @@ public class MainPage extends javax.swing.JFrame {
                                         .addComponent(radioP)
                                         .addGap(62, 62, 62))
                                     .addComponent(txtNama)))
-                            .addGroup(layout.createSequentialGroup()
+                            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                                 .addGap(0, 0, Short.MAX_VALUE)
                                 .addComponent(btnSave, javax.swing.GroupLayout.PREFERRED_SIZE, 73, javax.swing.GroupLayout.PREFERRED_SIZE)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -363,14 +322,16 @@ public class MainPage extends javax.swing.JFrame {
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                             .addComponent(jScrollPane1, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
                             .addComponent(jLabel3, javax.swing.GroupLayout.Alignment.TRAILING))
-                        .addGap(10, 10, 10)))
+                        .addGap(10, 10, 10))
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                        .addGap(0, 0, Short.MAX_VALUE)
+                        .addComponent(btnPrint, javax.swing.GroupLayout.PREFERRED_SIZE, 73, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(btnUpdate, javax.swing.GroupLayout.PREFERRED_SIZE, 73, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(btnDelete, javax.swing.GroupLayout.PREFERRED_SIZE, 73, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(9, 9, 9)))
                 .addContainerGap())
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                .addGap(0, 0, Short.MAX_VALUE)
-                .addComponent(btnUpdate, javax.swing.GroupLayout.PREFERRED_SIZE, 73, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(btnDelete, javax.swing.GroupLayout.PREFERRED_SIZE, 73, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(19, 19, 19))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -410,7 +371,8 @@ public class MainPage extends javax.swing.JFrame {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(btnUpdate)
-                    .addComponent(btnDelete))
+                    .addComponent(btnDelete)
+                    .addComponent(btnPrint))
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
@@ -510,6 +472,20 @@ public class MainPage extends javax.swing.JFrame {
         resetForm();
     }//GEN-LAST:event_btnResetActionPerformed
 
+    private void btnPrintActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnPrintActionPerformed
+        // TODO add your handling code here:
+        try {
+            HashMap parameters = new HashMap();
+            File file = new File("src/dataasistentetap/DataAsisten.jasper");
+            JasperReport jasperReport = (JasperReport) JRLoader.loadObject(file.getPath());
+            JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, conn.koneksi);
+            JasperViewer.viewReport(jasperPrint, false);
+            JasperViewer.setDefaultLookAndFeelDecorated(true);
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+        }
+    }//GEN-LAST:event_btnPrintActionPerformed
+
     /**
      * @param args the command line arguments
      */
@@ -547,6 +523,7 @@ public class MainPage extends javax.swing.JFrame {
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton btnDelete;
+    private javax.swing.JButton btnPrint;
     private javax.swing.JButton btnReset;
     private javax.swing.JButton btnSave;
     private javax.swing.JButton btnUpdate;
